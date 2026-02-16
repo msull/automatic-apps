@@ -24,3 +24,9 @@ A collection of standalone, self-contained static HTML experiments.
 - Screenshots are saved as `apps/<name>/screenshot.png`
 - The script reads `<title>` and `<meta name="description">` from each app's HTML
 - Regenerate after adding or updating any app
+
+## GitHub Pages
+
+- Run `npm run build:pages` to assemble the `docs/` folder
+- Copies `DIRECTORY.html` as `docs/index.html` (landing page) and each app's files (excluding tests)
+- Configure GitHub Pages to serve from the `docs/` folder on the main branch

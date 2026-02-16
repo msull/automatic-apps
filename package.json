@@ -4,7 +4,8 @@
   "scripts": {
     "serve": "npx serve apps -l 3000",
     "test": "npx playwright test --grep-invert 'generate app directory'",
-    "directory": "npx playwright test scripts/generate-directory.ts"
+    "directory": "npx playwright test scripts/generate-directory.ts",
+    "build:pages": "bash scripts/build-pages.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0"

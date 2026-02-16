@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Music Note Flashcards</title>
+<meta name="description" content="Practice identifying notes on the treble clef staff. A random note appears and you guess its name — tracks streak and score.">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: #fafafa;
+    color: #222;
+    padding: 1rem;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+  }
+
+  #staff-container {
+    margin-bottom: 2rem;
+  }
+
+  .staff-line { stroke: #333; stroke-width: 1.5; }
+  .ledger-line { stroke: #333; stroke-width: 1.5; }
+  .notehead {
+    fill: #222;
+    stroke: #222;
+    stroke-width: 0.5;
+  }
+
+  #buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .note-btn {
+    font-size: 1.2rem;
+    font-weight: 600;
+    width: 3rem;
+    height: 3rem;
+    border: 2px solid #333;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .note-btn:hover { background: #eee; }
+  .note-btn:active { transform: scale(0.95); }
+
+  .note-btn.correct {
+    background: #d4edda;
+    border-color: #28a745;
+    color: #155724;
+  }
+
+  .note-btn.incorrect {
+    background: #f8d7da;
+    border-color: #dc3545;
+    color: #721c24;
+  }
+
+  .note-btn.reveal {
+    background: #d4edda;
+    border-color: #28a745;
+    color: #155724;
+  }
+
+  .note-btn.disabled {
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  #score {
+    font-size: 1rem;
+    color: #555;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  #score span {
+    font-weight: 600;
+    color: #222;
+  }
+
+  #feedback {
+    font-size: 1.1rem;
+    font-weight: 600;
+    height: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  #feedback.correct-text { color: #28a745; }
+  #feedback.incorrect-text { color: #dc3545; }
+</style>
+</head>
+<body>
+
+<h1>Music Note Flashcards</h1>
+
+<div id="staff-container">
+  <svg id="staff" width="280" height="200" viewBox="0 0 280 200" aria-label="Musical staff with a note">
+    <!-- Staff lines: E4, G4, B4, D5, F5 (bottom to top) -->
+    <line class="staff-line" x1="30" y1="140" x2="260" y2="140" />
+    <line class="staff-line" x1="30" y1="120" x2="260" y2="120" />
+    <line class="staff-line" x1="30" y1="100" x2="260" y2="100" />
+    <line class="staff-line" x1="30" y1="80"  x2="260" y2="80" />
+    <line class="staff-line" x1="30" y1="60"  x2="260" y2="60" />
+
+    <!-- Treble clef -->
+    <text x="35" y="128" font-size="72" font-family="serif" fill="#333">&#119070;</text>
+
+    <!-- Note group: notehead + optional ledger lines -->
+    <g id="note-group"></g>
+  </svg>
+</div>
+
+<div id="feedback" aria-live="polite"></div>
+
+<div id="buttons">
+  <button class="note-btn" data-note="C">C</button>
+  <button class="note-btn" data-note="D">D</button>
+  <button class="note-btn" data-note="E">E</button>
+  <button class="note-btn" data-note="F">F</button>
+  <button class="note-btn" data-note="G">G</button>
+  <button class="note-btn" data-note="A">A</button>
+  <button class="note-btn" data-note="B">B</button>
+</div>
+
+<div id="score">
+  Streak: <span id="streak">0</span> &nbsp;|&nbsp;
+  Score: <span id="correct-count">0</span> / <span id="total-count">0</span>
+</div>
+
+<script>
+  // Notes from C4 (middle C) to G5, mapped to Y positions on the staff.
+  // Staff lines (bottom to top): E4=140, G4=120, B4=100, D5=80, F5=60
+  // Each step (half a staff space) = 10px
+  const NOTES = [
+    { name: "C", octave: 4, y: 160 },  // below staff, ledger line
+    { name: "D", octave: 4, y: 150 },  // below staff
+    { name: "E", octave: 4, y: 140 },  // first line
+    { name: "F", octave: 4, y: 130 },  // first space
+    { name: "G", octave: 4, y: 120 },  // second line
+    { name: "A", octave: 4, y: 110 },  // second space
+    { name: "B", octave: 4, y: 100 },  // third line
+    { name: "C", octave: 5, y: 90 },   // third space
+    { name: "D", octave: 5, y: 80 },   // fourth line
+    { name: "E", octave: 5, y: 70 },   // fourth space
+    { name: "F", octave: 5, y: 60 },   // fifth line
+    { name: "G", octave: 5, y: 50 },   // above staff
+  ];
+
+  const NOTE_X = 175;
+  const NOTE_RX = 11;
+  const NOTE_RY = 8;
+
+  let currentNote = null;
+  let streak = 0;
+  let correctCount = 0;
+  let totalCount = 0;
+  let waiting = false;
+
+  const noteGroup = document.getElementById("note-group");
+  const feedbackEl = document.getElementById("feedback");
+  const streakEl = document.getElementById("streak");
+  const correctCountEl = document.getElementById("correct-count");
+  const totalCountEl = document.getElementById("total-count");
+  const buttons = document.querySelectorAll(".note-btn");
+
+  function pickRandomNote() {
+    let next;
+    do {
+      next = NOTES[Math.floor(Math.random() * NOTES.length)];
+    } while (currentNote && next.name === currentNote.name && next.octave === currentNote.octave && NOTES.length > 1);
+    return next;
+  }
+
+  function renderNote(note) {
+    noteGroup.innerHTML = "";
+
+    // Ledger lines
+    if (note.y >= 160) {
+      // C4: ledger line at y=160
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("class", "ledger-line");
+      line.setAttribute("x1", NOTE_X - 16);
+      line.setAttribute("y1", 160);
+      line.setAttribute("x2", NOTE_X + 16);
+      line.setAttribute("y2", 160);
+      noteGroup.appendChild(line);
+    }
+    if (note.y <= 40) {
+      // A5: ledger line at y=40 (not in current range but future-proof)
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("class", "ledger-line");
+      line.setAttribute("x1", NOTE_X - 16);
+      line.setAttribute("y1", 40);
+      line.setAttribute("x2", NOTE_X + 16);
+      line.setAttribute("y2", 40);
+      noteGroup.appendChild(line);
+    }
+
+    // Notehead (ellipse)
+    const ellipse = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+    ellipse.setAttribute("class", "notehead");
+    ellipse.setAttribute("cx", NOTE_X);
+    ellipse.setAttribute("cy", note.y);
+    ellipse.setAttribute("rx", NOTE_RX);
+    ellipse.setAttribute("ry", NOTE_RY);
+    ellipse.setAttribute("transform", `rotate(-15, ${NOTE_X}, ${note.y})`);
+    ellipse.setAttribute("data-testid", "notehead");
+    noteGroup.appendChild(ellipse);
+  }
+
+  function updateScore() {
+    streakEl.textContent = streak;
+    correctCountEl.textContent = correctCount;
+    totalCountEl.textContent = totalCount;
+  }
+
+  function setFeedback(text, type) {
+    feedbackEl.textContent = text;
+    feedbackEl.className = type === "correct" ? "correct-text" : type === "incorrect" ? "incorrect-text" : "";
+  }
+
+  function disableButtons() {
+    buttons.forEach(b => b.classList.add("disabled"));
+    waiting = true;
+  }
+
+  function enableButtons() {
+    buttons.forEach(b => {
+      b.classList.remove("disabled", "correct", "incorrect", "reveal");
+    });
+    waiting = false;
+  }
+
+  function nextRound() {
+    enableButtons();
+    setFeedback("", "");
+    currentNote = pickRandomNote();
+    renderNote(currentNote);
+  }
+
+  function handleGuess(guessedName) {
+    if (waiting) return;
+
+    totalCount++;
+    const isCorrect = guessedName === currentNote.name;
+    const clickedBtn = document.querySelector(`.note-btn[data-note="${guessedName}"]`);
+
+    if (isCorrect) {
+      correctCount++;
+      streak++;
+      clickedBtn.classList.add("correct");
+      setFeedback("Correct!", "correct");
+      disableButtons();
+      setTimeout(nextRound, 800);
+    } else {
+      streak = 0;
+      clickedBtn.classList.add("incorrect");
+      // Reveal the correct answer
+      const correctBtn = document.querySelector(`.note-btn[data-note="${currentNote.name}"]`);
+      correctBtn.classList.add("reveal");
+      setFeedback(`Nope — it was ${currentNote.name}`, "incorrect");
+      disableButtons();
+      setTimeout(nextRound, 1500);
+    }
+
+    updateScore();
+  }
+
+  buttons.forEach(btn => {
+    btn.addEventListener("click", () => handleGuess(btn.dataset.note));
+  });
+
+  // Start
+  nextRound();
+</script>
+
+</body>
+</html>
