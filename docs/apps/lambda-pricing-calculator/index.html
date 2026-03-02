@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AWS Lambda + SnapStart Pricing Calculator</title>
+  <meta name="description" content="Estimate AWS Lambda costs with and without SnapStart. Configure requests, memory, duration, free tier, and SnapStart cache/restore pricing." />
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a33;
+      --panel2: #0f1630;
+      --text: #e6e9f2;
+      --muted: #aab2d6;
+      --accent: #7aa2ff;
+      --good: #6ee7b7;
+      --warn: #fbbf24;
+      --bad: #fb7185;
+      --border: rgba(255,255,255,0.10);
+      --shadow: rgba(0,0,0,0.35);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 600px at 20% 0%, rgba(122,162,255,0.14), transparent 60%),
+                  radial-gradient(900px 500px at 80% 20%, rgba(110,231,183,0.10), transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      line-height: 1.35;
+    }
+
+    header {
+      padding: 28px 18px 10px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      letter-spacing: 0.2px;
+    }
+
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 14px 18px 40px;
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 14px;
+    }
+
+    @media (max-width: 940px) {
+      main { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 30px var(--shadow);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .card .hd {
+      padding: 14px 14px 12px;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .card .hd h2 {
+      margin: 0;
+      font-size: 14px;
+      letter-spacing: 0.25px;
+    }
+
+    .card .hd .hint {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .card .bd { padding: 14px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 540px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    input[type="number"], input[type="text"], select {
+      width: 100%;
+      padding: 10px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.25);
+      color: var(--text);
+      outline: none;
+    }
+
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.18);
+    }
+
+    .toggle input { transform: scale(1.15); }
+
+    .mini {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .kpi {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .kpi .box {
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.18);
+    }
+
+    .kpi .box .t { color: var(--muted); font-size: 12px; }
+    .kpi .box .v { margin-top: 3px; font-size: 18px; font-weight: 650; letter-spacing: 0.2px; }
+
+    .money { color: var(--good); }
+
+    .muted { color: var(--muted); }
+
+    .breakdown {
+      margin-top: 12px;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .line {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .line .lhs { color: var(--muted); }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.16);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .footer {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 18px 26px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: rgba(122,162,255,0.16);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button.secondary {
+      background: rgba(255,255,255,0.06);
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    button:active { transform: translateY(1px); }
+
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.25);
+      color: var(--text);
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+    }
+
+    .warn {
+      color: var(--warn);
+      font-size: 12px;
+      margin-top: 10px;
+    }
+
+    .smallcap { text-transform: uppercase; letter-spacing: 0.14em; font-size: 11px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AWS Lambda Pricing Calculator (with/without SnapStart)</h1>
+    <p class="sub">Standalone HTML/JS. No external libraries. Edit the pricing constants if you want a different region or updated rates.</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <div class="hd">
+        <h2>Inputs</h2>
+        <span class="hint">Workload + pricing knobs</span>
+      </div>
+      <div class="bd">
+        <div class="grid">
+          <div>
+            <label for="period">Traffic period</label>
+            <select id="period">
+              <option value="day">Per day</option>
+              <option value="week">Per week</option>
+              <option value="month" selected>Per month</option>
+            </select>
+          </div>
+          <div>
+            <label for="requests">Requests in period</label>
+            <input id="requests" type="number" min="0" step="1" value="100000" />
+            <div class="mini">Example: 1000/day, 100000/week, 500000/month</div>
+          </div>
+
+          <div>
+            <label for="memoryMb">Memory (MB)</label>
+            <input id="memoryMb" type="number" min="128" step="64" value="512" />
+            <div class="mini">Used for GB-seconds billing and SnapStart cache/restore.</div>
+          </div>
+          <div>
+            <label for="durationMs">Avg billed duration (ms)</label>
+            <input id="durationMs" type="number" min="0" step="1" value="250" />
+            <div class="mini">Use your p50/p90 as desired; billing rounds up per ms.</div>
+          </div>
+
+          <div>
+            <label for="arch">Architecture</label>
+            <select id="arch">
+              <option value="x86_64" selected>x86_64</option>
+              <option value="arm64">arm64 (often cheaper in practice; price varies by region)</option>
+            </select>
+            <div class="mini">This calculator does not auto-adjust by arch; edit the rate constants if needed.</div>
+          </div>
+
+          <div>
+            <label for="freeTier">Free tier</label>
+            <div class="toggle">
+              <input id="freeTier" type="checkbox" checked />
+              <div>
+                <div><strong>Apply monthly free tier</strong></div>
+                <div class="mini">1M requests + 400,000 GB-s free (shared across your account/region).</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label for="snapStartOn">SnapStart</label>
+            <div class="toggle">
+              <input id="snapStartOn" type="checkbox" />
+              <div>
+                <div><strong>Include SnapStart add-on costs</strong></div>
+                <div class="mini">Adds snapshot cache + restore charges (for published versions).</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label for="restorePct">Restore rate (% of requests)</label>
+            <input id="restorePct" type="number" min="0" step="0.01" value="0.50" />
+            <div class="mini">Only used when SnapStart is enabled. Roughly: how many requests create a new environment.</div>
+          </div>
+
+          <div>
+            <label for="versionsActive">Published versions active</label>
+            <input id="versionsActive" type="number" min="0" step="1" value="1" />
+            <div class="mini">SnapStart caches per active published version.</div>
+          </div>
+
+          <div>
+            <label for="activeHours">Hours version stays active (in period)</label>
+            <input id="activeHours" type="number" min="0" step="1" value="720" />
+            <div class="mini">Month default 720h. For week use 168h, day use 24h.</div>
+          </div>
+
+          <div>
+            <label for="regionPreset">Region preset (rates)</label>
+            <select id="regionPreset">
+              <option value="use1" selected>US East (N. Virginia) — example rates</option>
+              <option value="custom">Custom — edit below</option>
+            </select>
+            <div class="mini">Rates change by region and sometimes over time. Confirm against AWS pricing.</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 14px;" class="card">
+          <div class="hd">
+            <h2>Rate constants (edit as needed)</h2>
+            <span class="hint">USD</span>
+          </div>
+          <div class="bd">
+            <div class="grid">
+              <div>
+                <label for="reqPerM">Requests ($ per 1M)</label>
+                <input id="reqPerM" type="number" min="0" step="0.000001" value="0.20" />
+              </div>
+              <div>
+                <label for="gbSec">Compute ($ per GB-second)</label>
+                <input id="gbSec" type="number" min="0" step="0.0000000001" value="0.0000166667" />
+              </div>
+              <div>
+                <label for="snapCache">SnapStart cache ($ per GB-second)</label>
+                <input id="snapCache" type="number" min="0" step="0.0000000001" value="0.0000015046" />
+              </div>
+              <div>
+                <label for="snapRestore">SnapStart restore ($ per GB restored)</label>
+                <input id="snapRestore" type="number" min="0" step="0.0000000001" value="0.0001397998" />
+              </div>
+              <div>
+                <label for="freeReq">Free tier requests (per month)</label>
+                <input id="freeReq" type="number" min="0" step="1" value="1000000" />
+              </div>
+              <div>
+                <label for="freeGbSec">Free tier GB-seconds (per month)</label>
+                <input id="freeGbSec" type="number" min="0" step="1" value="400000" />
+              </div>
+            </div>
+
+            <div class="btns">
+              <button id="applyPreset">Apply preset</button>
+              <button id="reset" class="secondary">Reset defaults</button>
+              <button id="copyLink" class="secondary">Copy shareable URL</button>
+            </div>
+
+            <div class="warn" id="rateWarning" style="display:none;"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd">
+        <h2>Results</h2>
+        <span class="hint">Estimated costs for the selected period</span>
+      </div>
+      <div class="bd">
+        <div class="kpi">
+          <div class="box">
+            <div class="t">Total (no SnapStart)</div>
+            <div class="v money" id="totalNoSnap">$0.00</div>
+            <div class="mini" id="noSnapMini"></div>
+          </div>
+          <div class="box">
+            <div class="t">Total (with SnapStart)</div>
+            <div class="v money" id="totalWithSnap">$0.00</div>
+            <div class="mini" id="withSnapMini"></div>
+          </div>
+        </div>
+
+        <div class="breakdown">
+          <div class="pill"><span class="smallcap">Derived</span> <span id="derived"></span></div>
+
+          <div class="line"><div class="lhs">Requests cost</div><div id="reqCost">$0.00</div></div>
+          <div class="line"><div class="lhs">Compute cost (GB-s)</div><div id="computeCost">$0.00</div></div>
+          <div class="line"><div class="lhs">SnapStart cache</div><div id="snapCacheCost">$0.00</div></div>
+          <div class="line"><div class="lhs">SnapStart restore</div><div id="snapRestoreCost">$0.00</div></div>
+
+          <div class="line"><div class="lhs">Free tier applied</div><div id="freeTierApplied">—</div></div>
+        </div>
+
+        <div style="margin-top: 14px;">
+          <label for="notes">Notes / assumptions</label>
+          <textarea id="notes" readonly></textarea>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="footer">
+    <div class="pill">This is an estimate. AWS bills by region, architecture, runtime, and other factors. Verify rates on AWS Lambda pricing.</div>
+  </div>
+
+<script>
+(function() {
+  // --- Helpers ---
+  const $ = (id) => document.getElementById(id);
+
+  function clamp(n, lo, hi) {
+    if (Number.isNaN(n)) return lo;
+    return Math.min(hi, Math.max(lo, n));
+  }
+
+  function fmtUsd(x) {
+    if (!Number.isFinite(x)) return '$0.00';
+    return x.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 4 });
+  }
+
+  function fmtNum(x, digits=2) {
+    if (!Number.isFinite(x)) return '0';
+    return x.toLocaleString(undefined, { maximumFractionDigits: digits });
+  }
+
+  function gbFromMb(mb) {
+    return mb / 1024;
+  }
+
+  function secondsFromMs(ms) {
+    return ms / 1000;
+  }
+
+  function periodToSeconds(period) {
+    if (period === 'day') return 24 * 3600;
+    if (period === 'week') return 7 * 24 * 3600;
+    return 30 * 24 * 3600; // month (approx)
+  }
+
+  function periodLabel(period) {
+    return period === 'day' ? 'day' : period === 'week' ? 'week' : 'month';
+  }
+
+  // --- Default rate presets (example) ---
+  // NOTE: These are example values commonly cited for US East (N. Virginia) and may change.
+  const PRESETS = {
+    use1: {
+      reqPerM: 0.20,
+      gbSec: 0.0000166667,
+      snapCache: 0.0000015046,
+      snapRestore: 0.0001397998,
+      freeReq: 1000000,
+      freeGbSec: 400000,
+    }
+  };
+
+  function applyPreset(key) {
+    const p = PRESETS[key];
+    if (!p) return;
+    $('reqPerM').value = p.reqPerM;
+    $('gbSec').value = p.gbSec;
+    $('snapCache').value = p.snapCache;
+    $('snapRestore').value = p.snapRestore;
+    $('freeReq').value = p.freeReq;
+    $('freeGbSec').value = p.freeGbSec;
+  }
+
+  // --- State <-> URL ---
+  const FIELDS = [
+    'period','requests','memoryMb','durationMs','arch','freeTier','snapStartOn','restorePct','versionsActive','activeHours',
+    'regionPreset','reqPerM','gbSec','snapCache','snapRestore','freeReq','freeGbSec'
+  ];
+
+  function readState() {
+    const state = {};
+    state.period = $('period').value;
+    state.requests = Number($('requests').value);
+    state.memoryMb = Number($('memoryMb').value);
+    state.durationMs = Number($('durationMs').value);
+    state.arch = $('arch').value;
+    state.freeTier = $('freeTier').checked;
+    state.snapStartOn = $('snapStartOn').checked;
+    state.restorePct = Number($('restorePct').value);
+    state.versionsActive = Number($('versionsActive').value);
+    state.activeHours = Number($('activeHours').value);
+    state.regionPreset = $('regionPreset').value;
+
+    state.reqPerM = Number($('reqPerM').value);
+    state.gbSec = Number($('gbSec').value);
+    state.snapCache = Number($('snapCache').value);
+    state.snapRestore = Number($('snapRestore').value);
+    state.freeReq = Number($('freeReq').value);
+    state.freeGbSec = Number($('freeGbSec').value);
+
+    return state;
+  }
+
+  function writeStateToUrl(state) {
+    const u = new URL(window.location.href);
+    for (const k of FIELDS) {
+      const v = state[k];
+      if (typeof v === 'boolean') {
+        u.searchParams.set(k, v ? '1' : '0');
+      } else {
+        u.searchParams.set(k, String(v));
+      }
+    }
+    history.replaceState(null, '', u.toString());
+  }
+
+  function loadStateFromUrl() {
+    const u = new URL(window.location.href);
+    let any = false;
+    for (const k of FIELDS) {
+      if (u.searchParams.has(k)) { any = true; }
+    }
+    if (!any) return;
+
+    const setVal = (id, v) => {
+      const el = $(id);
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = (v === '1' || v === 'true');
+      else el.value = v;
+    };
+
+    for (const k of FIELDS) {
+      const v = u.searchParams.get(k);
+      if (v == null) continue;
+      setVal(k, v);
+    }
+  }
+
+  // --- Calculation ---
+  function computeCosts(state) {
+    // Sanitize
+    const requests = Math.max(0, Math.floor(state.requests || 0));
+    const memoryMb = clamp(state.memoryMb || 0, 0, 10240);
+    const durationMs = clamp(state.durationMs || 0, 0, 10_000_000);
+    const restorePct = clamp(state.restorePct || 0, 0, 100);
+    const versionsActive = Math.max(0, Math.floor(state.versionsActive || 0));
+    const activeHours = clamp(state.activeHours || 0, 0, 24*365*10);
+
+    const gb = gbFromMb(memoryMb);
+    const durationSec = secondsFromMs(durationMs);
+
+    // Base compute usage (GB-seconds)
+    const gbSeconds = requests * gb * durationSec;
+
+    // Base request cost
+    const reqCost = (requests / 1_000_000) * state.reqPerM;
+
+    // Base compute cost
+    const computeCost = gbSeconds * state.gbSec;
+
+    // Free tier (monthly) is tricky because user may select day/week.
+    // Here we ONLY apply free tier if the selected period is month, OR if the user still wants it applied for the selected period
+    // as a rough allocation. We'll allocate proportionally by period length vs 30-day month.
+    let freeReqApplied = 0;
+    let freeGbSecApplied = 0;
+    let reqCostAfterFree = reqCost;
+    let computeCostAfterFree = computeCost;
+
+    if (state.freeTier) {
+      const periodSec = periodToSeconds(state.period);
+      const monthSec = periodToSeconds('month');
+      const fraction = clamp(periodSec / monthSec, 0, 1);
+
+      const freeReqAvail = state.freeReq * fraction;
+      const freeGbSecAvail = state.freeGbSec * fraction;
+
+      freeReqApplied = Math.min(requests, freeReqAvail);
+      const billableReq = Math.max(0, requests - freeReqApplied);
+      reqCostAfterFree = (billableReq / 1_000_000) * state.reqPerM;
+
+      freeGbSecApplied = Math.min(gbSeconds, freeGbSecAvail);
+      const billableGbSec = Math.max(0, gbSeconds - freeGbSecApplied);
+      computeCostAfterFree = billableGbSec * state.gbSec;
+    }
+
+    // SnapStart costs
+    let snapCacheCost = 0;
+    let snapRestoreCost = 0;
+    let restores = 0;
+
+    if (state.snapStartOn) {
+      // Cache cost: charged for snapshot storage time (GB-second) per active published version.
+      const cacheSeconds = activeHours * 3600;
+      const cacheGbSec = versionsActive * gb * cacheSeconds;
+      snapCacheCost = cacheGbSec * state.snapCache;
+
+      // Restore cost: charged per GB restored, per restore.
+      restores = requests * (restorePct / 100);
+      snapRestoreCost = (restores * gb) * state.snapRestore;
+    }
+
+    const totalNoSnap = reqCostAfterFree + computeCostAfterFree;
+    const totalWithSnap = totalNoSnap + snapCacheCost + snapRestoreCost;
+
+    return {
+      requests,
+      memoryMb,
+      gb,
+      durationMs,
+      durationSec,
+      gbSeconds,
+      reqCost,
+      computeCost,
+      reqCostAfterFree,
+      computeCostAfterFree,
+      freeReqApplied,
+      freeGbSecApplied,
+      restores,
+      snapCacheCost,
+      snapRestoreCost,
+      totalNoSnap,
+      totalWithSnap,
+    };
+  }
+
+  function updateUi() {
+    const state = readState();
+
+    // Optional preset warning
+    const rp = $('regionPreset').value;
+    if (rp !== 'custom') {
+      $('rateWarning').style.display = 'none';
+    } else {
+      $('rateWarning').style.display = 'block';
+      $('rateWarning').textContent = 'Custom rates selected — make sure these match your region + architecture + current AWS pricing.';
+    }
+
+    const r = computeCosts(state);
+
+    $('totalNoSnap').textContent = fmtUsd(r.totalNoSnap);
+    $('totalWithSnap').textContent = fmtUsd(state.snapStartOn ? r.totalWithSnap : r.totalNoSnap);
+
+    $('reqCost').textContent = fmtUsd(r.reqCostAfterFree);
+    $('computeCost').textContent = fmtUsd(r.computeCostAfterFree);
+    $('snapCacheCost').textContent = fmtUsd(state.snapStartOn ? r.snapCacheCost : 0);
+    $('snapRestoreCost').textContent = fmtUsd(state.snapStartOn ? r.snapRestoreCost : 0);
+
+    const freeMsg = state.freeTier
+      ? `${fmtNum(r.freeReqApplied, 0)} req + ${fmtNum(r.freeGbSecApplied, 0)} GB-s (allocated to this ${periodLabel(state.period)})`
+      : 'No';
+    $('freeTierApplied').textContent = freeMsg;
+
+    $('derived').textContent = `${fmtNum(r.requests, 0)} req · ${fmtNum(r.memoryMb, 0)} MB (${fmtNum(r.gb, 3)} GB) · ${fmtNum(r.durationMs, 0)} ms · ${fmtNum(r.gbSeconds, 2)} GB-s`;
+
+    const noteLines = [];
+    noteLines.push('What this estimates:' );
+    noteLines.push('• Base Lambda: requests + GB-seconds compute (your avg billed duration × memory).' );
+    noteLines.push('• Optional free tier: 1M requests + 400,000 GB-s per month (allocated proportionally to day/week/month selections).' );
+    noteLines.push('• Optional SnapStart add-on: cache (GB-s × active time × active versions) + restore (GB restored × restore count).' );
+    noteLines.push('');
+    noteLines.push('Important assumptions / gotchas:' );
+    noteLines.push('• AWS bills duration in 1ms increments (post-2020), but your real billed duration may differ from avg.' );
+    noteLines.push('• Free tier is shared across your whole account + region; this tool assumes it’s available for this function.' );
+    noteLines.push('• SnapStart “restore rate” depends on traffic shape + concurrency + deployments; use a range (0.1%–2%) to bracket.' );
+    noteLines.push('• If you keep multiple published versions/aliases active, SnapStart cache cost scales linearly with that count.' );
+    noteLines.push('');
+    if (state.snapStartOn) {
+      noteLines.push(`SnapStart details (your inputs):`);
+      noteLines.push(`• Active published versions: ${state.versionsActive}`);
+      noteLines.push(`• Cache time in this period: ${fmtNum(state.activeHours, 0)} hours`);
+      noteLines.push(`• Restores (estimated): ${fmtNum(r.restores, 2)} (${state.restorePct}% of requests)`);
+    } else {
+      noteLines.push('SnapStart is OFF. Turn it on to include cache/restore add-on costs.' );
+    }
+
+    $('notes').value = noteLines.join('\n');
+
+    // Minis
+    $('noSnapMini').textContent = `Requests + compute for this ${periodLabel(state.period)}.`;
+    $('withSnapMini').textContent = state.snapStartOn
+      ? `Base + SnapStart add-on (cache + restore).`
+      : `SnapStart off — same as no SnapStart.`;
+
+    writeStateToUrl(state);
+  }
+
+  // --- Events ---
+  function hookInputs() {
+    const ids = [
+      'period','requests','memoryMb','durationMs','arch','freeTier','snapStartOn','restorePct','versionsActive','activeHours',
+      'regionPreset','reqPerM','gbSec','snapCache','snapRestore','freeReq','freeGbSec'
+    ];
+    for (const id of ids) {
+      const el = $(id);
+      if (!el) continue;
+      el.addEventListener('input', updateUi);
+      el.addEventListener('change', () => {
+        // If switching preset away from custom, apply it.
+        if (id === 'regionPreset') {
+          const v = $('regionPreset').value;
+          if (v !== 'custom') applyPreset(v);
+        }
+        // Help: set a reasonable default activeHours when period changes.
+        if (id === 'period') {
+          const p = $('period').value;
+          $('activeHours').value = String(p === 'day' ? 24 : p === 'week' ? 168 : 720);
+        }
+        updateUi();
+      });
+    }
+
+    $('applyPreset').addEventListener('click', () => {
+      const v = $('regionPreset').value;
+      if (v !== 'custom') applyPreset(v);
+      updateUi();
+    });
+
+    $('reset').addEventListener('click', () => {
+      // Reset core inputs
+      $('period').value = 'month';
+      $('requests').value = 100000;
+      $('memoryMb').value = 512;
+      $('durationMs').value = 250;
+      $('arch').value = 'x86_64';
+      $('freeTier').checked = true;
+      $('snapStartOn').checked = false;
+      $('restorePct').value = 0.50;
+      $('versionsActive').value = 1;
+      $('activeHours').value = 720;
+      $('regionPreset').value = 'use1';
+      applyPreset('use1');
+      updateUi();
+    });
+
+    $('copyLink').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        const btn = $('copyLink');
+        const old = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = old, 900);
+      } catch (e) {
+        alert('Could not copy. You can manually copy the URL from the address bar.');
+      }
+    });
+  }
+
+  // --- Init ---
+  loadStateFromUrl();
+
+  // If preset is selected and user didn't load custom rates, apply preset.
+  const rp = $('regionPreset').value;
+  if (rp !== 'custom') {
+    // Only apply preset if rate fields are empty-ish.
+    // (If loaded from URL, they will be set already.)
+    const maybeEmpty = (v) => v == null || v === '';
+    if (maybeEmpty($('reqPerM').value) || maybeEmpty($('gbSec').value)) {
+      applyPreset(rp);
+    }
+  }
+
+  hookInputs();
+  updateUi();
+})();
+</script>
+</body>
+</html>
