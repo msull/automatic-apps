@@ -6,6 +6,8 @@ Standalone, self-contained static HTML experiments. Each app is a single HTML fi
 
 | App | Description |
 |-----|-------------|
+| [lambda-pricing-calculator](apps/lambda-pricing-calculator/) | Estimate AWS Lambda costs with and without SnapStart |
+| [monty-hall-simulator](apps/monty-hall-simulator/) | Simulate the Monty Hall problem with configurable doors, trials, and strategies |
 | [music-note-flashcards](apps/music-note-flashcards/) | Practice identifying notes on the treble clef staff |
 
 ## Running an app

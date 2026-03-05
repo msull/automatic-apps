@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Monty Hall Simulator</title>
+  <meta name="description" content="Simulate the Monty Hall problem with configurable doors, trials, and strategies. Compare keep, switch, and mixed strategies against theoretical win rates." />
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #111826;
+      --panel2: #0f1623;
+      --text: #e6edf3;
+      --muted: #9aa4b2;
+      --border: rgba(255,255,255,0.10);
+      --accent: #6ee7ff;
+      --good: #86efac;
+      --warn: #fcd34d;
+      --bad: #fda4af;
+      --shadow: 0 10px 30px rgba(0,0,0,0.35);
+      --radius: 18px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      background: radial-gradient(1200px 600px at 20% 0%, rgba(110,231,255,0.10), transparent 60%),
+                  radial-gradient(900px 500px at 90% 20%, rgba(134,239,172,0.08), transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      line-height: 1.35;
+    }
+
+    header {
+      padding: 28px 22px 10px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.2px;
+      display: flex;
+      gap: 10px;
+      align-items: baseline;
+    }
+
+    h1 small {
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 13px;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 10px 22px 40px;
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 18px;
+    }
+
+    @media (max-width: 980px) {
+      .wrap { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card .hd {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,0.15);
+    }
+
+    .card .hd .title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .card .hd .sub {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .card .bd { padding: 16px; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    input[type="number"], input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.25);
+      color: var(--text);
+      outline: none;
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .row3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .btns {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: rgba(110,231,255,0.12);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 14px;
+      cursor: pointer;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    button:hover { filter: brightness(1.08); }
+    button:active { transform: translateY(1px); }
+
+    button.secondary {
+      background: rgba(255,255,255,0.06);
+      color: var(--muted);
+      font-weight: 650;
+    }
+
+    .note {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+    }
+
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(0,0,0,0.18);
+    }
+
+    th, td {
+      padding: 10px 10px;
+      text-align: left;
+      font-size: 13px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    th {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+      background: rgba(0,0,0,0.25);
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .kpi {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .pill {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: rgba(0,0,0,0.18);
+    }
+
+    .pill .k {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .pill .v {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .barwrap {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      background: rgba(0,0,0,0.18);
+    }
+
+    canvas { width: 100%; height: 220px; display: block; }
+
+    .mono { font-family: var(--mono); }
+
+    .hint {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 10px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 0 3px rgba(110,231,255,0.18);
+    }
+
+    .footer {
+      max-width: 1100px;
+      margin: 10px auto 40px;
+      padding: 0 22px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .err {
+      margin-top: 10px;
+      color: #fecaca;
+      font-size: 12px;
+      font-family: var(--mono);
+      white-space: pre-wrap;
+    }
+
+    .right { text-align: right; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>
+      Monty Hall Simulator
+      <small>keep vs switch vs switch-50%</small>
+    </h1>
+  </header>
+
+  <div class="wrap">
+    <section class="card">
+      <div class="hd">
+        <div class="title">Simulation inputs</div>
+        <div class="sub">Classic Monty Hall is 3 doors. This simulator also supports <span class="mono">N ≥ 3</span> doors (host opens all goats except one).</div>
+      </div>
+      <div class="bd">
+        <div class="row">
+          <div>
+            <label for="doors">Doors (N)</label>
+            <input id="doors" type="number" min="3" step="1" value="3" />
+          </div>
+          <div>
+            <label for="trials">Trials</label>
+            <input id="trials" type="number" min="1" step="1" value="100000" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="seed">Seed (optional)</label>
+            <input id="seed" type="text" placeholder="(blank = random)" value="" />
+          </div>
+          <div>
+            <label for="switchProb">Switch probability for “switch 50%”</label>
+            <input id="switchProb" type="number" min="0" max="1" step="0.01" value="0.50" />
+          </div>
+        </div>
+
+        <div class="btns">
+          <button id="run">Run simulation</button>
+          <button id="run10" class="secondary">Run ×10 (more stable)</button>
+          <button id="reset" class="secondary">Reset</button>
+        </div>
+
+        <div class="hint"><span class="dot"></span> Tip: try <span class="mono">N=3</span> then <span class="mono">N=10</span> and watch how switching approaches certainty.</div>
+
+        <div id="err" class="err" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd">
+        <div class="title">Results</div>
+        <div class="sub">Simulation results plus theoretical win rates.</div>
+      </div>
+      <div class="bd">
+        <div class="grid">
+          <div>
+            <div class="kpi">
+              <div class="pill">
+                <div class="k">Computed theoretical P(win) if keep</div>
+                <div class="v" id="theoryKeep">—</div>
+              </div>
+              <div class="pill">
+                <div class="k">Computed theoretical P(win) if switch</div>
+                <div class="v" id="theorySwitch">—</div>
+              </div>
+              <div class="pill">
+                <div class="k">Computed theoretical P(win) if switch with probability p</div>
+                <div class="v" id="theoryMixed">—</div>
+              </div>
+              <div class="pill">
+                <div class="k">Elapsed</div>
+                <div class="v" id="elapsed">—</div>
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Strategy</th>
+                  <th class="right">Wins</th>
+                  <th class="right">Losses</th>
+                  <th class="right">Win rate</th>
+                </tr>
+              </thead>
+              <tbody id="tbody">
+                <tr><td colspan="4" class="mono">Run a simulation to see results.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div>
+            <div class="barwrap">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:8px;">
+                <div style="font-weight:800; font-size:13px;">Win rate comparison</div>
+                <div class="mono" id="meta">—</div>
+              </div>
+              <canvas id="chart" width="700" height="260"></canvas>
+              <div class="note">Bars show <span class="mono">keep</span>, <span class="mono">switch</span>, and <span class="mono">switch p</span> win rates from the last run.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </div>
+
+  <div class="footer">
+    For <span class="mono">N</span> doors: keeping wins with probability <span class="mono">1/N</span>. Switching (after the host reveals all goats except one) wins with probability <span class="mono">(N−1)/N</span>.
+  </div>
+
+  <script>
+    // --- Deterministic RNG (Mulberry32) with string-to-seed ---
+    function xmur3(str) {
+      let h = 1779033703 ^ str.length;
+      for (let i = 0; i < str.length; i++) {
+        h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+        h = (h << 13) | (h >>> 19);
+      }
+      return function() {
+        h = Math.imul(h ^ (h >>> 16), 2246822507);
+        h = Math.imul(h ^ (h >>> 13), 3266489909);
+        h ^= h >>> 16;
+        return h >>> 0;
+      };
+    }
+
+    function mulberry32(seed) {
+      let a = seed >>> 0;
+      return function() {
+        a |= 0;
+        a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function makeRng(seedStr) {
+      if (!seedStr) return () => Math.random();
+      const seedFn = xmur3(seedStr);
+      return mulberry32(seedFn());
+    }
+
+    function clamp(n, lo, hi) {
+      return Math.max(lo, Math.min(hi, n));
+    }
+
+    function fmtPct(x) {
+      return (x * 100).toFixed(3) + "%";
+    }
+
+    function fmtInt(n) {
+      return n.toLocaleString("en-US");
+    }
+
+    // --- Monty Hall simulation for N doors ---
+    // Setup:
+    // - Prize behind one door
+    // - Player picks one door
+    // - Host opens all goat doors except:
+    //     * never opens prize door
+    //     * never opens player's chosen door
+    //   leaving exactly 2 closed doors: player's door and one other
+    // - Player either keeps or switches to the remaining closed door
+    function runOneTrial(N, rng, strategy, switchProb) {
+      const prize = Math.floor(rng() * N);
+      const pick = Math.floor(rng() * N);
+
+      // Determine the "other remaining closed door" after host reveals goats.
+      // If player picked prize, host can leave any other goat door closed.
+      // If player picked a goat, host must leave the prize door closed.
+      let other;
+      if (pick === prize) {
+        // choose a goat door != pick
+        do {
+          other = Math.floor(rng() * N);
+        } while (other === pick || other === prize);
+      } else {
+        other = prize;
+      }
+
+      let finalPick = pick;
+      if (strategy === "keep") {
+        finalPick = pick;
+      } else if (strategy === "switch") {
+        finalPick = other;
+      } else if (strategy === "mixed") {
+        finalPick = (rng() < switchProb) ? other : pick;
+      } else {
+        throw new Error("Unknown strategy: " + strategy);
+      }
+
+      return finalPick === prize;
+    }
+
+    function simulate({ doors, trials, seed, switchProb, repeats }) {
+      const rng = makeRng(seed);
+      const start = performance.now();
+
+      const totals = {
+        keep: { wins: 0, losses: 0 },
+        switch: { wins: 0, losses: 0 },
+        mixed: { wins: 0, losses: 0 },
+      };
+
+      const totalTrials = trials * repeats;
+
+      // Evaluate all strategies on the SAME underlying trial
+      for (let i = 0; i < totalTrials; i++) {
+        const prize = Math.floor(rng() * doors);
+        const pick = Math.floor(rng() * doors);
+
+        const keepWin = pick === prize;
+        const switchWin = pick !== prize; // switching wins iff initial pick was wrong
+
+        const mixedWin = (rng() < switchProb) ? switchWin : keepWin;
+
+        if (keepWin) totals.keep.wins++; else totals.keep.losses++;
+        if (switchWin) totals.switch.wins++; else totals.switch.losses++;
+        if (mixedWin) totals.mixed.wins++; else totals.mixed.losses++;
+      }
+
+      const end = performance.now();
+
+      const rates = {
+        keep: totals.keep.wins / totalTrials,
+        switch: totals.switch.wins / totalTrials,
+        mixed: totals.mixed.wins / totalTrials,
+      };
+
+      return {
+        doors,
+        totalTrials,
+        switchProb,
+        totals,
+        rates,
+        elapsedMs: end - start,
+      };
+    }
+
+    // --- Rendering ---
+    const elDoors = document.getElementById("doors");
+    const elTrials = document.getElementById("trials");
+    const elSeed = document.getElementById("seed");
+    const elSwitchProb = document.getElementById("switchProb");
+    const elErr = document.getElementById("err");
+
+    const elTheoryKeep = document.getElementById("theoryKeep");
+    const elTheorySwitch = document.getElementById("theorySwitch");
+    const elTheoryMixed = document.getElementById("theoryMixed");
+    const elElapsed = document.getElementById("elapsed");
+    const elTbody = document.getElementById("tbody");
+    const elMeta = document.getElementById("meta");
+
+    const canvas = document.getElementById("chart");
+    const ctx = canvas.getContext("2d");
+
+    function clearError() { elErr.textContent = ""; }
+    function showError(msg) { elErr.textContent = msg; }
+
+    function computeTheory(N, p) {
+      // Under the standard Monty setup, switching wins iff initial pick was wrong.
+      // P(keep win) = 1/N
+      // P(switch win) = 1 - 1/N = (N-1)/N
+      // Mixed: keep with (1-p), switch with p
+      const keep = 1 / N;
+      const sw = (N - 1) / N;
+      const mixed = (1 - p) * keep + p * sw;
+      return { keep, sw, mixed };
+    }
+
+    function renderTable(result) {
+      const rows = [
+        { key: "keep", label: "Keep" },
+        { key: "switch", label: "Switch" },
+        { key: "mixed", label: `Switch with p=${result.switchProb.toFixed(2)}` },
+      ];
+
+      elTbody.innerHTML = rows.map(r => {
+        const t = result.totals[r.key];
+        const rate = result.rates[r.key];
+        return `
+          <tr>
+            <td>${r.label}</td>
+            <td class="right mono">${fmtInt(t.wins)}</td>
+            <td class="right mono">${fmtInt(t.losses)}</td>
+            <td class="right mono">${fmtPct(rate)}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function drawChart(result) {
+      // Responsive for DPR
+      const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+      const cssW = canvas.clientWidth;
+      const cssH = canvas.clientHeight;
+      canvas.width = Math.floor(cssW * dpr);
+      canvas.height = Math.floor(cssH * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const W = cssW;
+      const H = cssH;
+
+      // Clear
+      ctx.clearRect(0, 0, W, H);
+
+      // Layout
+      const pad = 14;
+      const top = 18;
+      const left = 34;
+      const right = 14;
+      const bottom = 30;
+
+      const plotW = W - left - right;
+      const plotH = H - top - bottom;
+
+      // Axes
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(255,255,255,0.16)";
+      ctx.beginPath();
+      ctx.moveTo(left, top);
+      ctx.lineTo(left, top + plotH);
+      ctx.lineTo(left + plotW, top + plotH);
+      ctx.stroke();
+
+      // Grid lines & labels (0, 0.5, 1)
+      ctx.font = "12px " + getComputedStyle(document.documentElement).getPropertyValue('--mono');
+      ctx.fillStyle = "rgba(230,237,243,0.65)";
+      const ticks = [0, 0.5, 1];
+      for (const t of ticks) {
+        const y = top + plotH - t * plotH;
+        ctx.strokeStyle = "rgba(255,255,255,0.08)";
+        ctx.beginPath();
+        ctx.moveTo(left, y);
+        ctx.lineTo(left + plotW, y);
+        ctx.stroke();
+
+        ctx.fillText(t.toFixed(1), 6, y + 4);
+      }
+
+      const items = [
+        { label: "Keep", v: result.rates.keep },
+        { label: "Switch", v: result.rates.switch },
+        { label: `Switch p`, v: result.rates.mixed },
+      ];
+
+      const gap = 16;
+      const barW = Math.max(40, (plotW - gap * (items.length + 1)) / items.length);
+
+      // Bars
+      items.forEach((it, idx) => {
+        const x = left + gap + idx * (barW + gap);
+        const h = it.v * plotH;
+        const y = top + (plotH - h);
+
+        // Fill
+        ctx.fillStyle = "rgba(110,231,255,0.35)";
+        if (idx === 1) ctx.fillStyle = "rgba(134,239,172,0.32)";
+        if (idx === 2) ctx.fillStyle = "rgba(252,211,77,0.30)";
+
+        // Rounded rect
+        const r = 10;
+        roundRect(ctx, x, y, barW, h, r);
+        ctx.fill();
+
+        // Outline
+        ctx.strokeStyle = "rgba(255,255,255,0.12)";
+        ctx.stroke();
+
+        // Value label
+        ctx.fillStyle = "rgba(230,237,243,0.90)";
+        ctx.fillText((it.v * 100).toFixed(2) + "%", x, y - 6);
+
+        // Category label
+        ctx.fillStyle = "rgba(230,237,243,0.65)";
+        const lbl = it.label;
+        ctx.fillText(lbl, x, top + plotH + 20);
+      });
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      const rr = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + rr, y);
+      ctx.arcTo(x + w, y, x + w, y + h, rr);
+      ctx.arcTo(x + w, y + h, x, y + h, rr);
+      ctx.arcTo(x, y + h, x, y, rr);
+      ctx.arcTo(x, y, x + w, y, rr);
+      ctx.closePath();
+    }
+
+    function renderTheory() {
+      const N = parseInt(elDoors.value, 10);
+      const p = parseFloat(elSwitchProb.value);
+      const t = computeTheory(N, p);
+      elTheoryKeep.textContent = fmtPct(t.keep) + `  (1/${N})`;
+      elTheorySwitch.textContent = fmtPct(t.sw) + `  (${N - 1}/${N})`;
+      elTheoryMixed.textContent = fmtPct(t.mixed);
+    }
+
+    function validateInputs() {
+      const N = Number(elDoors.value);
+      const trials = Number(elTrials.value);
+      const p = Number(elSwitchProb.value);
+
+      if (!Number.isFinite(N) || N < 3 || Math.floor(N) !== N) {
+        throw new Error("Doors (N) must be an integer ≥ 3.");
+      }
+      if (!Number.isFinite(trials) || trials < 1 || Math.floor(trials) !== trials) {
+        throw new Error("Trials must be an integer ≥ 1.");
+      }
+      if (!Number.isFinite(p) || p < 0 || p > 1) {
+        throw new Error("Switch probability must be between 0 and 1.");
+      }
+
+      return { N, trials, p };
+    }
+
+    function doRun(repeats) {
+      clearError();
+      let N, trials, p;
+      try {
+        ({ N, trials, p } = validateInputs());
+      } catch (e) {
+        showError(String(e.message || e));
+        return;
+      }
+
+      renderTheory();
+
+      const seed = (elSeed.value || "").trim();
+      const res = simulate({
+        doors: N,
+        trials,
+        seed,
+        switchProb: p,
+        repeats,
+      });
+
+      renderTable(res);
+      drawChart(res);
+
+      elMeta.textContent = `${fmtInt(res.totalTrials)} trials • N=${res.doors}`;
+      elElapsed.textContent = `${res.elapsedMs.toFixed(1)} ms`;
+    }
+
+    // --- Wire up ---
+    document.getElementById("run").addEventListener("click", () => doRun(1));
+    document.getElementById("run10").addEventListener("click", () => doRun(10));
+
+    document.getElementById("reset").addEventListener("click", () => {
+      elDoors.value = 3;
+      elTrials.value = 100000;
+      elSeed.value = "";
+      elSwitchProb.value = 0.50;
+      clearError();
+      renderTheory();
+      elTbody.innerHTML = `<tr><td colspan="4" class="mono">Run a simulation to see results.</td></tr>`;
+      elElapsed.textContent = "—";
+      elMeta.textContent = "—";
+      // Clear chart
+      const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+      canvas.width = Math.floor(canvas.clientWidth * dpr);
+      canvas.height = Math.floor(canvas.clientHeight * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+    });
+
+    // Live updates for theory display
+    [elDoors, elSwitchProb].forEach(el => el.addEventListener("input", () => {
+      clearError();
+      try {
+        validateInputs();
+        renderTheory();
+      } catch (e) {
+        // Don't spam, just show theory placeholders
+        elTheoryKeep.textContent = "—";
+        elTheorySwitch.textContent = "—";
+        elTheoryMixed.textContent = "—";
+      }
+    }));
+
+    window.addEventListener("resize", () => {
+      // If a chart is drawn, redraw is best, but we don't store last result.
+      // Leave it; next run redraws. We still clear to avoid blur artifacts.
+      const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+      canvas.width = Math.floor(canvas.clientWidth * dpr);
+      canvas.height = Math.floor(canvas.clientHeight * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+    });
+
+    // Initial theory render
+    renderTheory();
+  </script>
+</body>
+</html>

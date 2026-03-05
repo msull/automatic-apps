@@ -10,6 +10,7 @@ A collection of standalone, self-contained static HTML experiments.
 - Every app folder has an `index.html` as its entry point with a `<title>` and `<meta name="description">` tag (used by the auto-generated app directory)
 - Every app folder has a `tests.spec.ts` — Playwright tests that cover all core features and serve as living documentation
 - Keep apps simple — single HTML file preferred unless assets are truly needed
+- Always update the app table in `README.md` when adding or removing an app
 
 ## Testing
 
@@ -20,10 +21,10 @@ A collection of standalone, self-contained static HTML experiments.
 
 ## App Directory
 
-- Run `npm run directory` to regenerate `DIRECTORY.md` and `DIRECTORY.html` with screenshots of every app
+- Run `npm run directory` to regenerate `DIRECTORY.md`, `DIRECTORY.html`, and screenshots for every app
+- The script (`scripts/generate-directory.ts`) visits each app in a headless browser, takes a viewport screenshot, and reads `<title>` and `<meta name="description">` from the HTML
 - Screenshots are saved as `apps/<name>/screenshot.png`
-- The script reads `<title>` and `<meta name="description">` from each app's HTML
-- Regenerate after adding or updating any app
+- Always regenerate the directory after adding, removing, or visually updating any app
 
 ## GitHub Pages
 
