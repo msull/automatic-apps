@@ -24,10 +24,12 @@ A collection of standalone, self-contained static HTML experiments.
 - Run `npm run directory` to regenerate `DIRECTORY.md`, `DIRECTORY.html`, and screenshots for every app
 - The script (`scripts/generate-directory.ts`) visits each app in a headless browser, takes a viewport screenshot, and reads `<title>` and `<meta name="description">` from the HTML
 - Screenshots are saved as `apps/<name>/screenshot.png`
-- Always regenerate the directory after adding, removing, or visually updating any app
+- After adding, removing, or visually updating any app, always run both commands in order:
+  1. `npm run directory` — regenerate directory files and screenshots
+  2. `npm run build:pages` — rebuild the `docs/` folder for GitHub Pages
 
 ## GitHub Pages
 
-- Run `npm run build:pages` to assemble the `docs/` folder
+- `npm run build:pages` assembles the `docs/` folder
 - Copies `DIRECTORY.html` as `docs/index.html` (landing page) and each app's files (excluding tests)
-- Configure GitHub Pages to serve from the `docs/` folder on the main branch
+- GitHub Pages serves from the `docs/` folder on the main branch
