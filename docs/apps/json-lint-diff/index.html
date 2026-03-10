@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JSON Lint & Diff</title>
+  <meta name="description" content="Paste JSON to auto-format and validate. Optionally paste a second JSON to see a structural diff." />
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a33;
+      --text: #e6e9f2;
+      --muted: #aab2d6;
+      --accent: #7aa2ff;
+      --good: #6ee7b7;
+      --bad: #fb7185;
+      --warn: #fbbf24;
+      --border: rgba(255,255,255,0.10);
+      --diff-add: rgba(110,231,183,0.13);
+      --diff-del: rgba(251,113,133,0.13);
+      --diff-add-text: #6ee7b7;
+      --diff-del-text: #fb7185;
+    }
+
+    * { box-sizing: border-box; margin: 0; }
+
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(1200px 600px at 20% 0%, rgba(122,162,255,0.14), transparent 60%),
+                  radial-gradient(900px 500px at 80% 20%, rgba(110,231,183,0.10), transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      line-height: 1.4;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 28px 18px 10px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    h1 { font-size: 22px; letter-spacing: 0.2px; margin-bottom: 4px; }
+    .sub { color: var(--muted); font-size: 13px; }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 16px 18px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 7px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    button:hover { background: rgba(122,162,255,0.15); border-color: var(--accent); }
+    button.active { background: rgba(122,162,255,0.22); border-color: var(--accent); color: var(--accent); }
+
+    .indent-select {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .editors {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+    .editors.two-up { grid-template-columns: 1fr 1fr; }
+
+    .editor-pane {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .pane-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .pane-label { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .pane-status { font-size: 12px; }
+    .pane-status.valid { color: var(--good); }
+    .pane-status.invalid { color: var(--bad); }
+
+    textarea {
+      width: 100%;
+      height: 420px;
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font-family: "SF Mono", "Fira Code", "JetBrains Mono", Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      resize: vertical;
+      tab-size: 2;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    textarea:focus { border-color: var(--accent); }
+    textarea.error { border-color: var(--bad); }
+
+    .diff-output {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font-family: "SF Mono", "Fira Code", "JetBrains Mono", Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      overflow: auto;
+      max-height: 500px;
+      white-space: pre;
+      margin-top: 14px;
+    }
+
+    .diff-line { padding: 0 6px; }
+    .diff-line.add { background: var(--diff-add); color: var(--diff-add-text); }
+    .diff-line.del { background: var(--diff-del); color: var(--diff-del-text); }
+    .diff-line.ctx { color: var(--muted); }
+    .diff-line.hdr { color: var(--accent); font-weight: 600; }
+
+    .diff-stats {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 10px;
+      display: flex;
+      gap: 16px;
+    }
+    .diff-stats .adds { color: var(--good); }
+    .diff-stats .dels { color: var(--bad); }
+
+    .error-msg {
+      color: var(--bad);
+      font-size: 12px;
+      margin-top: 4px;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      min-height: 1.4em;
+    }
+
+    @media (max-width: 800px) {
+      .editors.two-up { grid-template-columns: 1fr; }
+      textarea { height: 260px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>JSON Lint & Diff</h1>
+    <p class="sub">Paste JSON to auto-format. Enable diff mode to compare two JSON values.</p>
+  </header>
+
+  <div class="container">
+    <div class="toolbar">
+      <button id="btn-diff" title="Toggle diff mode">Diff Mode</button>
+      <button id="btn-sort" title="Sort object keys alphabetically">Sort Keys</button>
+      <label style="color:var(--muted); font-size:13px; display:flex; align-items:center; gap:6px;">
+        Indent:
+        <select class="indent-select" id="indent-select">
+          <option value="2" selected>2 spaces</option>
+          <option value="4">4 spaces</option>
+          <option value="tab">Tab</option>
+        </select>
+      </label>
+      <button id="btn-minify" title="Minify JSON">Minify</button>
+      <button id="btn-clear" title="Clear all">Clear</button>
+    </div>
+
+    <div class="editors" id="editors">
+      <div class="editor-pane">
+        <div class="pane-header">
+          <span class="pane-label" id="label-a">Input</span>
+          <span class="pane-status" id="status-a"></span>
+        </div>
+        <textarea id="editor-a" placeholder="Paste JSON here..." spellcheck="false"></textarea>
+        <div class="error-msg" id="error-a"></div>
+      </div>
+      <div class="editor-pane" id="pane-b" style="display:none;">
+        <div class="pane-header">
+          <span class="pane-label">Right</span>
+          <span class="pane-status" id="status-b"></span>
+        </div>
+        <textarea id="editor-b" placeholder="Paste second JSON here..." spellcheck="false"></textarea>
+        <div class="error-msg" id="error-b"></div>
+      </div>
+    </div>
+
+    <div id="diff-container" style="display:none;">
+      <div class="diff-output" id="diff-output"></div>
+      <div class="diff-stats" id="diff-stats"></div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  const editorA = document.getElementById('editor-a');
+  const editorB = document.getElementById('editor-b');
+  const statusA = document.getElementById('status-a');
+  const statusB = document.getElementById('status-b');
+  const errorA = document.getElementById('error-a');
+  const errorB = document.getElementById('error-b');
+  const labelA = document.getElementById('label-a');
+  const paneB = document.getElementById('pane-b');
+  const editorsEl = document.getElementById('editors');
+  const btnDiff = document.getElementById('btn-diff');
+  const btnSort = document.getElementById('btn-sort');
+  const btnMinify = document.getElementById('btn-minify');
+  const btnClear = document.getElementById('btn-clear');
+  const indentSelect = document.getElementById('indent-select');
+  const diffContainer = document.getElementById('diff-container');
+  const diffOutput = document.getElementById('diff-output');
+  const diffStats = document.getElementById('diff-stats');
+
+  let diffMode = false;
+  let sortKeys = false;
+  let minifyMode = false;
+
+  function getIndent() {
+    const v = indentSelect.value;
+    return v === 'tab' ? '\t' : Number(v);
+  }
+
+  function sortObj(obj) {
+    if (Array.isArray(obj)) return obj.map(sortObj);
+    if (obj !== null && typeof obj === 'object') {
+      const sorted = {};
+      Object.keys(obj).sort().forEach(k => { sorted[k] = sortObj(obj[k]); });
+      return sorted;
+    }
+    return obj;
+  }
+
+  function tryParse(str) {
+    try {
+      const v = JSON.parse(str);
+      return { value: v, error: null };
+    } catch (e) {
+      return { value: null, error: e.message };
+    }
+  }
+
+  function formatJSON(value) {
+    let v = value;
+    if (sortKeys) v = sortObj(v);
+    if (minifyMode) return JSON.stringify(v);
+    return JSON.stringify(v, null, getIndent());
+  }
+
+  function formatEditor(editor, statusEl, errorEl) {
+    const raw = editor.value.trim();
+    if (!raw) {
+      statusEl.textContent = '';
+      statusEl.className = 'pane-status';
+      errorEl.textContent = '';
+      editor.classList.remove('error');
+      return null;
+    }
+    const result = tryParse(raw);
+    if (result.error) {
+      statusEl.textContent = 'Invalid';
+      statusEl.className = 'pane-status invalid';
+      errorEl.textContent = result.error;
+      editor.classList.add('error');
+      return null;
+    }
+    statusEl.textContent = 'Valid';
+    statusEl.className = 'pane-status valid';
+    errorEl.textContent = '';
+    editor.classList.remove('error');
+    editor.value = formatJSON(result.value);
+    return result.value;
+  }
+
+  function handleBlurOrPaste(editor, statusEl, errorEl) {
+    formatEditor(editor, statusEl, errorEl);
+    if (diffMode) computeDiff();
+  }
+
+  // -- Diff algorithm (Myers-like line diff) --
+  function diffLines(a, b) {
+    const aLines = a.split('\n');
+    const bLines = b.split('\n');
+    const n = aLines.length, m = bLines.length;
+
+    // Simple LCS-based diff
+    const dp = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+    for (let i = n - 1; i >= 0; i--) {
+      for (let j = m - 1; j >= 0; j--) {
+        if (aLines[i] === bLines[j]) dp[i][j] = dp[i + 1][j + 1] + 1;
+        else dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1]);
+      }
+    }
+
+    const result = [];
+    let i = 0, j = 0;
+    while (i < n || j < m) {
+      if (i < n && j < m && aLines[i] === bLines[j]) {
+        result.push({ type: 'ctx', line: aLines[i] });
+        i++; j++;
+      } else if (j < m && (i >= n || dp[i][j + 1] >= dp[i + 1][j])) {
+        result.push({ type: 'add', line: bLines[j] });
+        j++;
+      } else {
+        result.push({ type: 'del', line: aLines[i] });
+        i++;
+      }
+    }
+    return result;
+  }
+
+  function computeDiff() {
+    const rawA = editorA.value.trim();
+    const rawB = editorB.value.trim();
+    if (!rawA || !rawB) {
+      diffContainer.style.display = 'none';
+      return;
+    }
+    const pA = tryParse(rawA);
+    const pB = tryParse(rawB);
+    if (pA.error || pB.error) {
+      diffContainer.style.display = 'none';
+      return;
+    }
+    const strA = formatJSON(pA.value);
+    const strB = formatJSON(pB.value);
+
+    if (strA === strB) {
+      diffContainer.style.display = 'block';
+      diffOutput.innerHTML = '<span class="diff-line ctx" style="color:var(--good);">No differences found.</span>';
+      diffStats.innerHTML = '';
+      return;
+    }
+
+    const lines = diffLines(strA, strB);
+    let adds = 0, dels = 0;
+    const html = lines.map(l => {
+      const prefix = l.type === 'add' ? '+ ' : l.type === 'del' ? '- ' : '  ';
+      if (l.type === 'add') adds++;
+      if (l.type === 'del') dels++;
+      const escaped = l.line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return `<div class="diff-line ${l.type}">${prefix}${escaped}</div>`;
+    }).join('');
+
+    diffContainer.style.display = 'block';
+    diffOutput.innerHTML = html;
+    diffStats.innerHTML = `<span class="adds">+${adds} added</span><span class="dels">-${dels} removed</span>`;
+  }
+
+  // Event listeners for editor A
+  editorA.addEventListener('blur', () => handleBlurOrPaste(editorA, statusA, errorA));
+  editorA.addEventListener('paste', () => {
+    setTimeout(() => handleBlurOrPaste(editorA, statusA, errorA), 0);
+  });
+
+  // Event listeners for editor B
+  editorB.addEventListener('blur', () => handleBlurOrPaste(editorB, statusB, errorB));
+  editorB.addEventListener('paste', () => {
+    setTimeout(() => handleBlurOrPaste(editorB, statusB, errorB), 0);
+  });
+
+  // Toolbar
+  btnDiff.addEventListener('click', () => {
+    diffMode = !diffMode;
+    btnDiff.classList.toggle('active', diffMode);
+    paneB.style.display = diffMode ? '' : 'none';
+    editorsEl.classList.toggle('two-up', diffMode);
+    labelA.textContent = diffMode ? 'Left' : 'Input';
+    if (diffMode) {
+      computeDiff();
+    } else {
+      diffContainer.style.display = 'none';
+    }
+  });
+
+  btnSort.addEventListener('click', () => {
+    sortKeys = !sortKeys;
+    btnSort.classList.toggle('active', sortKeys);
+    reformatAll();
+  });
+
+  btnMinify.addEventListener('click', () => {
+    minifyMode = !minifyMode;
+    btnMinify.classList.toggle('active', minifyMode);
+    reformatAll();
+  });
+
+  indentSelect.addEventListener('change', () => {
+    minifyMode = false;
+    btnMinify.classList.remove('active');
+    reformatAll();
+  });
+
+  btnClear.addEventListener('click', () => {
+    editorA.value = '';
+    editorB.value = '';
+    statusA.textContent = '';
+    statusB.textContent = '';
+    errorA.textContent = '';
+    errorB.textContent = '';
+    editorA.classList.remove('error');
+    editorB.classList.remove('error');
+    diffContainer.style.display = 'none';
+    diffStats.innerHTML = '';
+  });
+
+  function reformatAll() {
+    formatEditor(editorA, statusA, errorA);
+    if (diffMode) {
+      formatEditor(editorB, statusB, errorB);
+      computeDiff();
+    }
+  }
+
+  // Tab key inserts spaces/tab in textareas
+  [editorA, editorB].forEach(editor => {
+    editor.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const indent = indentSelect.value === 'tab' ? '\t' : ' '.repeat(Number(indentSelect.value));
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        editor.value = editor.value.substring(0, start) + indent + editor.value.substring(end);
+        editor.selectionStart = editor.selectionEnd = start + indent.length;
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
